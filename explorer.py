@@ -7,6 +7,8 @@ from aiohttp import web
 import aiohttp_jinja2
 import jinja2
 import logging
+import sqlite3
+import time
 from datetime import datetime
 
 loop = asyncio.get_event_loop()
@@ -37,6 +39,16 @@ async def get_result(readliner, timeout):
   return res
 
 
+def init_base(db_name = "explorer.db"):
+  with sqlite3.connect(db_name) as conn:
+    cur = conn.cursor()
+    cur.execute("CREATE TABLE blocks(height integer PRIMARY KEY, hash text, timestamp integer)")
+
+
+def insert_block(height, timestamp, long_hash, db_name = "explorer.db"):
+  with sqlite3.connect(db_name) as conn:
+    cur = conn.cursor()
+    cur.execute("INSERT INTO blocks VALUES (%d, '%s', %d)"%(int(height), long_hash, int(timestamp*1000)))
 
 
 async def run_command(*args, timeout=0.2, initial_timeout=5):
@@ -71,6 +83,16 @@ async def run_command(*args, timeout=0.2, initial_timeout=5):
             future.set_result(output)
 
     return await process.wait()
+
+async def check_block_routine():
+    while True:
+      res = await get_last_block_info()
+      try:
+        insert_block(res["height"],time.time(), res["hz1"]+":"+res["hz2"] )
+      except:
+        pass
+      await asyncio.sleep(1) 
+    pass
 
 async def get_server_time():
     time_future = asyncio.Future()
@@ -128,9 +150,14 @@ async def handle(request):
 
 if __name__ == '__main__':
   loop.create_task(run_command("/root/liteclient-build/test-lite-client", "-C", "/root/liteclient-build/ton-lite-client-test1.config.json",))
+  loop.create_task(check_block_routine())
   app = web.Application(loop=loop)
   app.router.add_get('/', handle)
   app.router.add_get('/account/{account}', handle)
   aiohttp_jinja2.setup(app,
       loader=jinja2.FileSystemLoader("./"))
+  try:
+    init_base()
+  except sqlite3.OperationalError as e:
+    pass
   web.run_app(app)
