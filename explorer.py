@@ -50,6 +50,28 @@ def insert_block(height, timestamp, long_hash, db_name = "explorer.db"):
     cur = conn.cursor()
     cur.execute("INSERT INTO blocks VALUES (%d, '%s', %d)"%(int(height), long_hash, int(timestamp*1000)))
 
+def get_graph_data(db_name = "explorer.db"):
+  with sqlite3.connect(db_name) as conn:
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(height) from blocks")
+    rows=cur.fetchone()[0]
+    fr = 1
+    if rows>100:
+      fr = int(rows/40)
+    print(fr)
+    cur.execute("SELECT height, timestamp from blocks where height%%%d=0 order by height"%(fr))
+    rows=cur.fetchall()
+    bh = ""
+    bm = ""
+    for i,(h,t) in enumerate(rows):
+      bh+="{t:%d, y:%d},"%(int(t/1000), h)
+      if not i==0:
+        dt = int( (t - rows[i-1][1])/1000)
+        db = h-rows[i-1][0]
+        bpm = db*60./dt
+        bm+="{x:%.1f, y:%d},"%(int(t/1000), bpm)
+    return "["+bh+"]", "["+bm+"]"
+
 
 async def run_command(*args, timeout=0.2, initial_timeout=5):
     process = await asyncio.create_subprocess_exec(*args,
@@ -145,6 +167,10 @@ async def handle(request):
         ret["balance"] = account_data["balance"]      
       except:
         pass
+    else:
+      graph_data = get_graph_data()
+      ret["block_height_graph_data"] =  graph_data[0]
+      ret["block_per_minute_graph_data"] =  graph_data[1]
     return ret
 
 

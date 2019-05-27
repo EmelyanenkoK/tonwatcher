@@ -5,6 +5,9 @@
   <link rel="apple-touch-icon image_src" href="/favicon.ico"/>
   <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, minimum-scale=1.0">
   <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.8.2/css/all.css" integrity="sha384-oS3vJWv+0UjzBfQzYUhtDYW+Pj2yciDJxpsK1OYPAYjqT085Qq/1cq5FLXAZQ7Ay" crossorigin="anonymous">
+ <script src="https://momentjs.com/downloads/moment-with-locales.min.js"></script>
+ <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.bundle.min.js"></script>
+
  </head>
 	<style>
 	*{
@@ -69,9 +72,11 @@
         .footer i {
           margin: 20px;
         }
-        .balance {
-          font-size: 22px;
+        #blocksChart {
+          max-width: 600px;
+          max-height:400px;
         }
+        
 </style>
  <body>
   <center>
@@ -92,7 +97,9 @@
          <span class="balance">Balance <strong>{{balance}}</strong></span>
          <pre>{{account_info}}</pre>
        </div>
-     {% endif %}
+    {% else %} 
+    <canvas id="blocksChart" ></canvas>
+    {% endif %}
     <hr />
     <div class="footer">
 {{last_block}}<br/>
@@ -101,6 +108,48 @@
     <a href="https://t.me/rulon"><i class="fab fa-telegram"></i>Contact me</a><a href="https://github.com/EmelyanenkoK/tonwatcher"><i class="fab fa-github"></i>Source code</a>
     </div>
   </center>
+  {% if not account_info %}
+	<script>
+	var ctx = document.getElementById('blocksChart');
+	var myChart = new Chart(ctx, {
+	    type: 'line',
+	    data: {
+		datasets: [{
+		    label: 'Block height',
+                    yAxisID: 'A',
+		    data: {{block_height_graph_data}} ,
+		},
+                {
+		    label: 'Blocks per minute',
+                    yAxisID: 'B',
+		    data: {{block_per_minute_graph_data}},
+		}]
+	    },
+	    options: {
+		scales: {
+                  xAxes: [{
+                    type: 'time',
+                    time: {
+                      displayFormats: {
+                        minute: 'h:mm a'
+                          }
+                      }
+
+            }],
+		yAxes: [{
+			id: 'A',
+			type: 'linear',
+			position: 'left',
+		      }, {
+			id: 'B',
+			type: 'linear',
+			position: 'right',
+		      }]
+}
+	    }
+	});
+	</script>
+   {% endif %}
  </body>
 </html>
 
