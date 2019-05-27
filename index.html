@@ -117,12 +117,14 @@
 		datasets: [{
 		    label: 'Block height',
                     yAxisID: 'A',
-		    data: {{block_height_graph_data}} ,
+		    data: {{block_height_graph_data|safe}} ,
+                    borderColor: "rgb(150, 0, 0)"
 		},
                 {
 		    label: 'Blocks per minute',
                     yAxisID: 'B',
-		    data: {{block_per_minute_graph_data}},
+		    data: {{block_per_minute_graph_data|safe}},
+                    borderColor: "rgb(0, 150, 0)"
 		}]
 	    },
 	    options: {
