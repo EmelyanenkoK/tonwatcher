@@ -39,13 +39,26 @@
 	}
 
 	.time{
-	  font-size: 30px;
+	  font-size: 20px;
           color: #000044;
 	  border-bottom: 1px solid #000044;
-	  padding: 10px 0 14px;
+	  padding: 0px 0 0px;
 	}
 
 
+	.links{
+	  font-size: 16px;
+          color: #000044;
+	  padding: 0px 0 0px;
+          border-bottom: 0px solid #000044;
+          margin-top: -10px;
+	  padding: 10px 0px 14px;
+	}
+
+	.time span{
+	  padding-left:10px;
+	  padding-right:10px;
+	}
 	.help{
 	  font-weight: lighter;
 	  font-size: 24px;
@@ -81,8 +94,12 @@
  <body>
   <center>
     <div class="time">
-      TON Server Time: <strong>{{ time }}</strong> <br/>
-      Last block height: <strong>{{ block_height }}</strong>
+      <div class="links">
+        <span><a href="https://faucet.copperbits.io">Test Ton Faucet</a></span>
+        <span><a href="https://explorer.test.ton.cryptoprocessing.io/">Alternative explorer</a></span>
+      </div>
+      <span>TON Server Time: <strong>{{ time }}</strong></span>
+      <span>Last block height: <strong>{{ block_height }}</strong></span>
     </div>
     <br/>
     <h1>Enter Address</h1>
