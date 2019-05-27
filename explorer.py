@@ -131,7 +131,6 @@ if __name__ == '__main__':
   app = web.Application(loop=loop)
   app.router.add_get('/', handle)
   app.router.add_get('/account/{account}', handle)
-  app.router.add_static('/favicon.ico',"./favicon.ico")
   aiohttp_jinja2.setup(app,
       loader=jinja2.FileSystemLoader("./"))
   web.run_app(app)

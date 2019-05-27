@@ -55,7 +55,7 @@
 	  font-size: 16px;
 	  font-family: monospace;
 	}
-        .account_info div {
+        .account_info pre {
           text-align: left;
           background-color: #ccc;
           max-width: 600px;
@@ -68,6 +68,9 @@
         }
         .footer i {
           margin: 20px;
+        }
+        .balance {
+          font-size: 22px;
         }
 </style>
  <body>
@@ -86,7 +89,7 @@
     
     {% if account_info %}
        <div class="account_info">
-         Balance {{balance}}
+         <span class="balance">Balance <strong>{{balance}}</strong></span>
          <pre>{{account_info}}</pre>
        </div>
      {% endif %}
