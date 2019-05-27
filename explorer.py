@@ -64,12 +64,12 @@ def get_graph_data(db_name = "explorer.db"):
     bh = ""
     bm = ""
     for i,(h,t) in enumerate(rows):
-      bh+="{t:%d, y:%d},"%(int(t/1000), h)
+      bh+="{t:moment(%d,'X'), y:%d},"%(int(t/1000), h)
       if not i==0:
         dt = int( (t - rows[i-1][1])/1000)
         db = h-rows[i-1][0]
         bpm = db*60./dt
-        bm+="{x:%.1f, y:%d},"%(int(t/1000), bpm)
+        bm+="{x:moment(%d,'X'), y:%.1f},"%(int(t/1000), bpm)
     return "["+bh+"]", "["+bm+"]"
 
 
