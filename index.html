@@ -1,0 +1,105 @@
+<html>
+ <head>
+  <title>TON Explorer</title>
+  <link rel="shortcut icon" href="/favicon.ico"/>
+  <link rel="apple-touch-icon image_src" href="/favicon.ico"/>
+  <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, minimum-scale=1.0">
+  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.8.2/css/all.css" integrity="sha384-oS3vJWv+0UjzBfQzYUhtDYW+Pj2yciDJxpsK1OYPAYjqT085Qq/1cq5FLXAZQ7Ay" crossorigin="anonymous">
+ </head>
+	<style>
+	*{
+	  font-family: Times New Roman;
+	}
+	input{
+	  width: 100%;
+	  max-width: 600px;
+	  height: 30px;
+	  font-family: monospace;
+	  font-size: 20px;
+	  line-height: 30px;
+	  border: 1px solid lightgrey;
+	  text-align: center;
+	}
+
+	button{
+	  width: 100%;
+	  max-width: 200px;
+	  height: 50px;
+	  background: lightgreen;
+	  border: 0;
+	  font-weight: bold;
+	  letter-spacing: 1px;
+	  text-transform: uppercase;
+	  font-size: 20px;
+	  line-height: 30px;
+	  cursor: pointer;
+	}
+
+	.time{
+	  font-size: 30px;
+          color: #000044;
+	  border-bottom: 1px solid #000044;
+	  padding: 10px 0 14px;
+	}
+
+
+	.help{
+	  font-weight: lighter;
+	  font-size: 24px;
+	  width: 100%;
+	  max-width: 500px;
+	}
+
+	form a{
+	  color: grey;
+	  font-size: 16px;
+	  font-family: monospace;
+	}
+        .account_info div {
+          text-align: left;
+          background-color: #ccc;
+          max-width: 600px;
+          overflow-y:auto;
+        }
+
+        .footer{
+          bottom:0;
+
+        }
+        .footer i {
+          margin: 20px;
+        }
+</style>
+ <body>
+  <center>
+    <div class="time">
+      TON Server Time: <strong>{{ time }}</strong> <br/>
+      Last block height: <strong>{{ block_height }}</strong>
+    </div>
+    <br/>
+    <h1>Enter Address</h1>
+    <form method="POST" action="/address">
+      <input type="text" name="address"/><br/><br/>
+      <span class="help">Enter address in any valid format, for example:<br/><a href="/account/8156775b79325e5d62e742d9b96c30b6515a5cd2f1f64c5da4b193c03f070e0d">8156775b79325e5d62e742d9b96c30b6515a5cd2f1f64c5da4b193c03f070e0d</a><br/> or<br/><a href="/account/Ef-BVndbeTJeXWLnQtm5bDC2UVpc0vH2TF2ksZPAPwcODSkb">Ef-BVndbeTJeXWLnQtm5bDC2UVpc0vH2TF2ksZPAPwcODSkb</a></span><br/><br/>
+      <button type="submit">Submit</button>
+    </form>
+    
+    {% if account_info %}
+       <div class="account_info">
+         Balance {{balance}}
+         <pre>{{account_info}}</pre>
+       </div>
+     {% endif %}
+    <hr />
+    <div class="footer">
+{{last_block}}<br/>
+{{unknown_key1}}<br/>
+{{unknown_key2}}<br/>
+    <a href="https://t.me/rulon"><i class="fab fa-telegram"></i>Contact me</a><a href="https://github.com/EmelyanenkoK/tonwatcher"><i class="fab fa-github"></i>Source code</a>
+    </div>
+  </center>
+ </body>
+</html>
+
+
+
