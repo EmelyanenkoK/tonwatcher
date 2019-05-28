@@ -14,6 +14,7 @@ from datetime import datetime
 loop = asyncio.get_event_loop()
 task_list = []
 ton_logger = logging.getLogger("TON")
+explorer_logger = logging.getLogger("Explorer")
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(name)s %(levelname)s:%(message)s')
 
 def remove_color(s):
@@ -83,6 +84,7 @@ async def run_command(*args, timeout=0.2, initial_timeout=5):
     if len(output):
       ton_logger.info("Successfully initialised")
     while True:
+      try:
         if not len(task_list):
           await asyncio.sleep(0.1)        
           continue
@@ -103,16 +105,21 @@ async def run_command(*args, timeout=0.2, initial_timeout=5):
             output = await get_result(process.stdout.readline, timeout)
             ton_logger.debug("Got result")
             future.set_result(output)
+      except Exception as e:
+        ton_logger.error(e)
 
     return await process.wait()
 
 async def check_block_routine():
     while True:
-      res = await get_last_block_info()
       try:
-        insert_block(res["height"],time.time(), res["hz1"]+":"+res["hz2"] )
-      except:
-        pass
+        res = await get_last_block_info()
+        try:
+          insert_block(res["height"],time.time(), res["hz1"]+":"+res["hz2"] )
+        except:
+          pass
+      except Exception as e:
+        explorer_logger.error(e)
       await asyncio.sleep(1) 
     pass
 
