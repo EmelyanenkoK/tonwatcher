@@ -12,11 +12,23 @@ from datetime import datetime
 from .utils import *
 from .db import *
 
+
+# ===========  CHANGE PARAMS HERE ===========
+server_port = 8080
+logging_level = logging.DEBUG # one of [logging.CRITICAL, logging.ERROR, logging.INFO, logging.DEBUG]
+lite_client_path = "/root/liteclient-build/test-lite-client"
+lite_client_config_path = "/root/liteclient-build/ton-lite-client-test1.config.json"
+
+
+# ===========  END OF PARAMS SECTION ===========  
+
+
+
 loop = asyncio.get_event_loop()
 task_list = []
 ton_logger = logging.getLogger("TON")
 explorer_logger = logging.getLogger("Explorer")
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(name)s %(levelname)s:%(message)s')
+logging.basicConfig(level=logging_level, format='%(asctime)s %(name)s %(levelname)s:%(message)s')
 
 
 
@@ -133,7 +145,7 @@ async def handle(request):
 
 
 if __name__ == '__main__':
-  loop.create_task(run_command("/root/liteclient-build/test-lite-client", "-C", "/root/liteclient-build/ton-lite-client-test1.config.json",))
+  loop.create_task(run_command(lite_client_path, "-C", lite_client_config_path,))
   loop.create_task(check_block_routine())
   app = web.Application(loop=loop)
   app.router.add_get('/', handle)
@@ -145,4 +157,4 @@ if __name__ == '__main__':
     init_base()
   except sqlite3.OperationalError as e:
     pass
-  web.run_app(app)
+  web.run_app(app, port=server_port)
