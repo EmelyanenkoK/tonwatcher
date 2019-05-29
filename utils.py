@@ -1,4 +1,4 @@
-import re
+import re, asyncio
 
 def remove_color(s):
   ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')

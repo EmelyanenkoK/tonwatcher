@@ -9,8 +9,8 @@ import logging
 import sqlite3
 import time
 from datetime import datetime
-from .utils import *
-from .db import *
+from utils import *
+from db import *
 
 
 # ===========  CHANGE PARAMS HERE ===========
@@ -64,6 +64,7 @@ async def run_command(*args, timeout=0.2, initial_timeout=5):
             ton_logger.debug("Got result")
             future.set_result(output)
       except Exception as e:
+        raise e
         ton_logger.error(e)
     return await process.wait()
 
@@ -118,12 +119,15 @@ async def get_account(account):
 
 @aiohttp_jinja2.template('index.html')
 async def handle(request):
+    account = None
     try: 
         data = await request.post()
         account = data["account"]
-        raise web.HTTPFound('/account/%s'%account)
     except:
         pass
+    finally:
+      if account:
+        raise web.HTTPFound('/account/%s'%account)
     time = await get_server_time()
     block_info = await get_last_block_info()
     ret = {"time":time, "block_height":block_info["height"], \
