@@ -118,18 +118,18 @@ async def get_account(account):
 
 @aiohttp_jinja2.template('index.html')
 async def handle(request):
+    try: 
+        data = await request.post()
+        account = data["account"]
+        raise web.HTTPFound('/account/%s'%account)
+    except:
+        pass
     time = await get_server_time()
     block_info = await get_last_block_info()
     ret = {"time":time, "block_height":block_info["height"], \
             "unknown_key1": block_info["hz1"], "unknown_key2": block_info["hz2"],
             "last_block": "Last masterchain block is (chain_id %s : %s : height: %s)"%(block_info["chain_id"], block_info["hz3"], block_info["height"])}
     account = request.match_info.get('account', None)
-    if not account:
-      try: 
-        data = await request.post()
-        account = data["account"]
-      except:
-        pass
     if account:
       try:
         account_data = await get_account(account)
