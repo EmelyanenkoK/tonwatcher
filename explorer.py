@@ -68,6 +68,20 @@ async def run_command(*args, timeout=0.2, initial_timeout=5):
         ton_logger.error(e)
     return await process.wait()
 
+async def check_testnet_giver_balance():
+  giver = "8156775b79325e5d62e742d9b96c30b6515a5cd2f1f64c5da4b193c03f070e0d"
+  while True:
+      try:
+        res = await get_account(giver)
+        try:
+          insert_giver_balance(time.time(), res["balance"])
+        except:
+          pass
+      except Exception as e:
+        explorer_logger.error(e)
+      await asyncio.sleep(10) 
+  
+
 async def check_block_routine():
     while True:
       try:
@@ -145,12 +159,14 @@ async def handle(request):
       graph_data = get_graph_data()
       ret["block_height_graph_data"] =  graph_data[0]
       ret["block_per_minute_graph_data"] =  graph_data[1]
+      ret["giver_balance"] =  graph_data[2]
     return ret
 
 
 if __name__ == '__main__':
   loop.create_task(run_command(lite_client_path, "-C", lite_client_config_path,))
   loop.create_task(check_block_routine())
+  loop.create_task(check_testnet_giver_balance())
   app = web.Application(loop=loop)
   app.router.add_get('/', handle)
   app.router.add_post('/account', handle)

@@ -89,6 +89,10 @@
           max-width: 600px;
           max-height:400px;
         }
+        #balanceChart {
+          max-width: 600px;
+          max-height:400px;
+        }
         
 </style>
  <body>
@@ -117,6 +121,7 @@
        </div>
     {% else %} 
     <canvas id="blocksChart" ></canvas>
+    <canvas id="balanceChart" ></canvas>
     {% endif %}
     <hr />
     <div class="footer">
@@ -168,6 +173,31 @@
 }
 	    }
 	});
+	var ctx2 = document.getElementById('balanceChart');
+	var myChart2 = new Chart(ctx2, {
+	    type: 'line',
+	    data: {
+		datasets: [{
+		    label: 'Balance of giver account',
+		    data: {{giver_balance|safe}} ,
+                    borderColor: "rgb(150, 0, 0)"
+		}]
+	    },
+	    options: {
+		scales: {
+                  xAxes: [{
+                    type: 'time',
+                    time: {
+                      displayFormats: {
+                        minute: 'h:mm a'
+                          }
+                      }
+
+            		}],
+		}
+	    }
+	});
+
 	</script>
    {% endif %}
  </body>
