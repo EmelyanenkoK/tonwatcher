@@ -59,14 +59,39 @@ async def check_testnet_giver_balance():
       except Exception as e:
         explorer_logger.error(e)
       await asyncio.sleep(10) 
-  
+
+def get_prev_block(block_dump):
+  root_hash = block_dump["block"]["block"]["info"]["block_info"]["prev_ref"]["prev_blk_info"]["prev"]["ext_blk_ref"]["root_hash"]
+  seq_no = block_dump["block"]["block"]["info"]["block_info"]["prev_ref"]["prev_blk_info"]["prev"]["ext_blk_ref"]["seq_no"]
+  file_hash = block_dump["block"]["block"]["info"]["block_info"]["prev_ref"]["prev_blk_info"]["prev"]["ext_blk_ref"]["file_hash"]
+  hz3 = 8000000000000000
+  chain_id = -1
+  root_hash = root_hash[1:] #remove 'x'
+  file_hash = file_hash[1:] #remove 'x'
+  return "(%d,%d,%d):%s:%s"%( int(chain_id), int(hz3), int(seq_no), str(root_hash), str(file_hash) )
+
+   
+block_awaiting_list = []
+async def get_blocks_routine():
+    while True:
+      while len(block_awaiting_list):
+        full_id = block_awaiting_list.pop()  
+        block_dump = dump_block(full_id)
+        block_num = int(block_dump["block"]["block"]["info"]["block_info"]["seq_no"])
+        insert_block(block_num, time.time(), full_id, block_dump)  
+        prev = get_prev_block(block_dump)     
+        if block_num>1 and not get_block(block_num):
+            block_awaiting_list.append(prev)        
+      await asyncio.sleep(0.3) 
+    pass    
 
 async def check_block_routine():
     while True:
       try:
         res = await get_last_block_info()
         try:
-          insert_block(res["height"],time.time(), res["hz1"]+":"+res["hz2"] )
+          if not get_block(res["height"]):
+            block_awaiting_list.append(res["full_id"])
         except:
           pass
       except Exception as e:
@@ -83,8 +108,13 @@ async def get_last_block_info():
     last = await request('last')
     main_chain, keys = last.split(")")
     chain_id, hz3, block_height = main_chain[1:].split(",")
-    hz1, hz2 = keys[1:].split(":")
-    return {"height":block_height, "chain_id":chain_id, "hz1":hz1, "hz2":hz2, "hz3":hz3}
+    root_hash, file_hash = keys[1:].split(":")
+    return {"height":block_height, "chain_id":chain_id, "root_hash":root_hash, "file_hash":file_hash, "hz3":hz3, "full_id":last}
+ 
+async def dump_block(full_id):
+    block = await request('dumpblock', [full_id])
+    block["block"] = parse(block["block"])
+    return block
 
 
 async def get_account(account):
@@ -110,7 +140,7 @@ async def handle(request):
     time = await get_server_time()
     block_info = await get_last_block_info()
     ret = {"time":time, "block_height":block_info["height"], \
-            "unknown_key1": block_info["hz1"], "unknown_key2": block_info["hz2"],
+            "root_hash": block_info["root_hash"], "file_hash": block_info["file_hash"],
             "last_block": "Last masterchain block is (chain_id %s : %s : height: %s)"%(block_info["chain_id"], block_info["hz3"], block_info["height"])}
     account = request.match_info.get('account', None)
     if account:
@@ -130,6 +160,7 @@ async def handle(request):
 
 if __name__ == '__main__':
   loop.create_task(check_block_routine())
+  loop.create_task(get_blocks_routine())
   loop.create_task(check_testnet_giver_balance())
   app = web.Application(loop=loop)
   app.router.add_get('/', handle)
