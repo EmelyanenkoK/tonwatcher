@@ -2,74 +2,53 @@ import asyncio
 import sys
 import time
 from asyncio.subprocess import PIPE, STDOUT
-from aiohttp import web
+from aiohttp import web, ClientSession
 import aiohttp_jinja2
 import jinja2
 import logging
 import sqlite3
 import time
+import json
 from datetime import datetime
 from utils import *
 from db import *
+from parser import parse
 
 
 # ===========  CHANGE PARAMS HERE ===========
-server_port = 8080
+server_port = 8090
 logging_level = logging.DEBUG # one of [logging.CRITICAL, logging.ERROR, logging.INFO, logging.DEBUG]
-lite_client_path = "/root/liteclient-build/test-lite-client"
-lite_client_config_path = "/root/liteclient-build/ton-lite-client-test1.config.json"
-
+lite_client_port = 8000
+lite_client_host = "http://localhost"
 
 # ===========  END OF PARAMS SECTION ===========  
 
 
 
 loop = asyncio.get_event_loop()
-task_list = []
 ton_logger = logging.getLogger("TON")
 explorer_logger = logging.getLogger("Explorer")
 logging.basicConfig(level=logging_level, format='%(asctime)s %(name)s %(levelname)s:%(message)s')
 
 
+async def fetch(session, url):
+    async with session.get(url) as response:
+        return await response.text()
 
-async def run_command(*args, timeout=0.2, initial_timeout=5):
-    process = await asyncio.create_subprocess_exec(*args,
-            stdin=PIPE, stdout=PIPE, stderr=STDOUT)
-    time.sleep(initial_timeout)
-    #initialisation
-    ton_logger.info("initialisation of ton client...")
-    output = await get_result(process.stdout.readline, timeout)
-    if len(output):
-      ton_logger.info("Successfully initialised")
-    while True:
-      try:
-        if not len(task_list):
-          await asyncio.sleep(0.1)        
-          continue
-        while len(task_list):
-          task, future, params = task_list.pop()
-          ton_logger.info("Processing %s request %s"%(task, str(params) if params else ''))
-          if task in ["last", "time"]:
-            process.stdin.write(task.encode("utf-8")+b"\n")
-            await process.stdin.drain()
-            ton_logger.debug("Awaiting result")
-            output = await get_result(process.stdout.readline, timeout)
-            ton_logger.debug("Got result")
-            future.set_result(output)
-          if task in ["getaccount"]:
-            process.stdin.write((task+" "+params[0]).encode("utf-8") + b"\n")
-            await process.stdin.drain()
-            ton_logger.debug("Awaiting result")
-            output = await get_result(process.stdout.readline, timeout)
-            ton_logger.debug("Got result")
-            future.set_result(output)
-      except Exception as e:
-        raise e
-        ton_logger.error(e)
-    return await process.wait()
+async def request(method, params=[]):
+    async with ClientSession() as session:
+        addr = "%s:%s/%s"%(lite_client_host, lite_client_port, method)
+        if len(params):
+          addr+="/"+"/".join(params)
+        print(addr)
+        result = await fetch(session, addr)
+        #TODO it is dangerous
+        result = result.replace("'", '"').replace("\n", " ")
+        print(result)
+        return json.loads(result)["result"]
 
 async def check_testnet_giver_balance():
-  giver = "8156775b79325e5d62e742d9b96c30b6515a5cd2f1f64c5da4b193c03f070e0d"
+  giver = "-1:8156775b79325e5d62e742d9b96c30b6515a5cd2f1f64c5da4b193c03f070e0d"
   while True:
       try:
         res = await get_account(giver)
@@ -96,40 +75,26 @@ async def check_block_routine():
     pass
 
 async def get_server_time():
-    time_future = asyncio.Future()
-    task_list.append(('time',time_future, None))
-    res = await time_future
-    time = int(res[res.find("server time is")+len("server time is"):])
-    time = datetime.utcfromtimestamp(time).strftime('%Y-%m-%d %H:%M:%S')
+    time = await request('time')
+    time = datetime.utcfromtimestamp(int(time)).strftime('%Y-%m-%d %H:%M:%S')
     return time
 
 async def get_last_block_info():
-    block_info_future = asyncio.Future()
-    task_list.append(('last',block_info_future, None))
-    res = await block_info_future
-    block_info = (res[res.find("last masterchain block is")+len("last masterchain block is"):]).strip()
-    main_chain, keys = block_info.split(")")
+    last = await request('last')
+    main_chain, keys = last.split(")")
     chain_id, hz3, block_height = main_chain[1:].split(",")
     hz1, hz2 = keys[1:].split(":")
     return {"height":block_height, "chain_id":chain_id, "hz1":hz1, "hz2":hz2, "hz3":hz3}
 
 
 async def get_account(account):
-    account_future = asyncio.Future()
-    task_list.append(('getaccount',account_future, [account]))
-    res = await account_future
+    account = await request('getaccount', [account])
+    account["account"] = parse(account["account"])
     try:
-      res=res[res.find("account state is ")+len("account state is "):]
+      balance = int(account["account"]["account"]["storage"]["account_storage"]["balance"]["currencies"]["grams"]["nanograms"]["amount"]["var_uint"]["value"])/1e9
     except:
-      pass
-    try:
-      from_grams = res[res.find("nanograms"):]
-      val_start = from_grams.find("value:")+6
-      val_finish = from_grams[val_start:].find(")")
-      balance = int(from_grams[val_start:val_start+val_finish])/1e9
-    except Exception as e:
-      balance = 0
-    return {"balance":balance, "full_info":res}
+      balance = None
+    return {"balance":balance, "full_info":json.dumps(account, indent=2)}
 
 @aiohttp_jinja2.template('index.html')
 async def handle(request):
@@ -164,7 +129,6 @@ async def handle(request):
 
 
 if __name__ == '__main__':
-  loop.create_task(run_command(lite_client_path, "-C", lite_client_config_path,))
   loop.create_task(check_block_routine())
   loop.create_task(check_testnet_giver_balance())
   app = web.Application(loop=loop)
