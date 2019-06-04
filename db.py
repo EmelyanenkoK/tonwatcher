@@ -7,15 +7,30 @@ def init_base(db_name = "explorer.db"):
     tables = cur.fetchall()
     tables = [i[0] for i in tables]
     if not "blocks" in tables:
-      cur.execute("CREATE TABLE blocks(height integer PRIMARY KEY, hash text, timestamp integer)")
+      cur.execute("CREATE TABLE blocks(height integer PRIMARY KEY, hash text, timestamp integer, dump text)")
     if not "giver_balance" in tables:
       cur.execute("CREATE TABLE giver_balance (id integer PRIMARY KEY AUTOINCREMENT, timestamp integer, balance integer)")
 
-
-def insert_block(height, timestamp, long_hash, db_name = "explorer.db"):
+def get_block(height):
   with sqlite3.connect(db_name) as conn:
     cur = conn.cursor()
-    cur.execute("INSERT INTO blocks VALUES (%d, '%s', %d)"%(int(height), long_hash, int(timestamp*1000)))
+    cur.execute("SELECT hash, dump from blocks where height=%d"%(int(height)))  
+    res = cur.fetchone()
+    return res
+    
+
+def get_sequntial_block_hashes(from_height, amount=10):
+  with sqlite3.connect(db_name) as conn:
+    cur = conn.cursor()
+    cur.execute("SELECT height, hash from blocks where height<=%d and height>=%d"%(int(height), int(height)-amount))  
+    res = cur.fetchall()
+    return res
+      
+
+def insert_block(height, timestamp, long_hash, dump, db_name = "explorer.db"):
+  with sqlite3.connect(db_name) as conn:
+    cur = conn.cursor()
+    cur.execute("INSERT INTO blocks VALUES (?, ?, ?, ?)"%(int(height), long_hash, int(timestamp*1000), dump))
 
 def get_graph_data(db_name = "explorer.db"):
   with sqlite3.connect(db_name) as conn:
