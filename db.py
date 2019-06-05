@@ -18,10 +18,10 @@ def get_block(height, db_name = "explorer.db"):
     res = cur.fetchone()
     return res
 
-def get_sequntial_block_hashes(from_height, amount=10):
+def get_sequntial_block_hashes(from_height, amount=10, db_name = "explorer.db"):
   with sqlite3.connect(db_name) as conn:
     cur = conn.cursor()
-    cur.execute("SELECT height, hash from blocks where height<=%d and height>=%d"%(int(height), int(height)-amount))  
+    cur.execute("SELECT height, hash from blocks where height<=%d and height>%d"%(int(from_height), int(from_height)-amount))  
     res = cur.fetchall()
     return res
 

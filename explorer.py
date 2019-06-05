@@ -40,11 +40,9 @@ async def request(method, params=[]):
         addr = "%s:%s/%s"%(lite_client_host, lite_client_port, method)
         if len(params):
           addr+="/"+"/".join(params)
-        print(addr)
         result = await fetch(session, addr)
         #TODO it is dangerous
         result = result.replace("'", '"').replace("\n", " ")
-        print(result)
         return json.loads(result)["result"]
 
 async def check_testnet_giver_balance():
@@ -76,11 +74,12 @@ async def get_blocks_routine():
     while True:
       while len(block_awaiting_list):
         full_id = block_awaiting_list.pop()  
-        block_dump = dump_block(full_id)
+        print("getting block %s"%full_id)
+        block_dump = await dump_block(full_id)
         block_num = int(block_dump["block"]["block"]["info"]["block_info"]["seq_no"])
-        insert_block(block_num, time.time(), full_id, block_dump)  
+        insert_block(block_num, time.time(), full_id)  
         prev = get_prev_block(block_dump)     
-        if block_num>1 and not get_block(block_num):
+        if block_num>1 and not get_block(block_num-1):
             block_awaiting_list.append(prev)        
       await asyncio.sleep(0.3) 
     pass    
@@ -92,8 +91,8 @@ async def check_block_routine():
         try:
           if not get_block(res["height"]):
             block_awaiting_list.append(res["full_id"])
-        except:
-          pass
+        except Exception as e:
+          print(e)
       except Exception as e:
         explorer_logger.error(e)
       await asyncio.sleep(1) 
@@ -112,7 +111,7 @@ async def get_last_block_info():
     return {"height":block_height, "chain_id":chain_id, "root_hash":root_hash, "file_hash":file_hash, "hz3":hz3, "full_id":last}
  
 async def dump_block(full_id):
-    block = await request('dumpblock', [full_id])
+    block = await request('getblock', [full_id])
     block["block"] = parse(block["block"])
     return block
 
