@@ -2,43 +2,45 @@ class Token:
   pass
 
 class Map(Token):
+  def __init__(self, position):
+    self.position = position
   def __repr__(self):
     return "MAP(->)"
 
 class Down(Token):
-
-  def __init__(self, to_level=0):
+  def __init__(self, position, to_level=0):
+    self.position = position
     self.level = to_level
-
   def __repr__(self):
     return "DOWN(%d)"%self.level
     
 
 class Up(Token):
-
-  def __init__(self, from_level=0):
+  def __init__(self, position, from_level=0):
+    self.position = position
     self.level = from_level
-
   def __repr__(self):
     return "UP(%d)"%self.level
 
 
 class Word(Token):
-  def __init__(self, word):
+  def __init__(self, position, word):
+    self.position = position
     self.v = word
   def __repr__(self):
     return "WORD(%s)"%self.v
  
 
 class Integer(Token):
-  def __init__(self, i):
+  def __init__(self, position, i):
+    self.position = position
     self.v = int(i)
   def __repr__(self):
     return "Int(%d)"%self.v
   
 
 
-symbols = {Down:"(", Up:")", Word:"abcdefghijklmnopqrtsuvwxyzABCDEFGHIJKLMNOPQRTSUVWXYZ_@^-", Integer:"0123456789", Map: ":", None:" \t\n"}
+symbols = {Down:"(", Up:")", Word:"abcdefghijklmnopqrtsuvwxyzABCDEFGHIJKLMNOPQRTSUVWXYZ_@^-{}", Integer:"0123456789", Map: ":", None:" \t\n"}
 
 def tok_by_symb(c):
   for i in symbols:
@@ -50,10 +52,10 @@ def get_tokens(s):
   level = 0
   tokens = []
   state = None
-  for c in s:
+  for position, c in enumerate(s):
     next_state = tok_by_symb(c)
     if state in [Word, Integer] and ( (not next_state == state) and not set([state, next_state])==set([Word, Integer]) ):
-        tokens.append(state(cache))
+        tokens.append(state(position-len(cache), cache))
         cache = ""
         state = next_state          
     if next_state in [Word, Integer]:
@@ -62,16 +64,16 @@ def get_tokens(s):
         continue
     elif next_state is Down:      
         level+=1
-        tokens.append(Down(level))
+        tokens.append(Down(position, level))
         state = None
         continue
     elif next_state is Up:      
-        tokens.append(Up(level))
+        tokens.append(Up(position, level))
         level-=1
         state = None
         continue
     elif next_state is Map:      
-        tokens.append(Map())
+        tokens.append(Map(position))
         state = None
         continue
     else:
@@ -79,7 +81,14 @@ def get_tokens(s):
       continue
   return tokens
 
-unparsable_entities = ["state_update", "code", "data"]
+def tokens_to_string(tokens):
+  ret = ""
+  for t in tokens:
+    if type(t) in [Word, Integer]:
+      ret+=str(t.v)+"  "
+    else:
+      ret+= {Map:":", Down: "(", Up: ")"}[type(t)]+" "
+  return ret
 
 def build_object(tokens, wait_till_the_end = False, most_top_level = True):
   'returns value, upper k and number of consumed tokens'
@@ -88,6 +97,7 @@ def build_object(tokens, wait_till_the_end = False, most_top_level = True):
   key = None
   i=0
   consumed = 0 
+  blind_cache = []
   stop_level = None  
   awaiting_value, cur_key = False, None
   while i<len(tokens):
@@ -98,17 +108,21 @@ def build_object(tokens, wait_till_the_end = False, most_top_level = True):
          if most_top_level:
            break
          else:
+           if wait_till_the_end:
+             ret = tokens_to_string(blind_cache)
            return key, ret, consumed    
        elif wait_till_the_end and t.level>stop_level:
          # generally parser should not see Up token of not his own level
          # since any children expression will be parsed by it's own parser call, 
          # however when we ignore anything inside some expression we should 
          # also ignore all childs
+         blind_cache.append(t)
          i+=1
          continue
        else:
          raise "1"
     elif wait_till_the_end and i:
+      blind_cache.append(t)
       i+=1
       continue
     if isinstance(t, Down):
@@ -116,10 +130,7 @@ def build_object(tokens, wait_till_the_end = False, most_top_level = True):
          stop_level = t.level
          i+=1
        else:
-         wt = (isinstance(tokens[i-2], Word) and tokens[i-2].v in unparsable_entities)
-         k,v,n = build_object(tokens[i:], wt, most_top_level = False)
-         if wt:
-           k,v = "content", "not parsable"
+         k,v,n = build_object(tokens[i:], most_top_level = False)
          if awaiting_value:
            ret[cur_key]={k:v}
            awaiting_value, cur_key = False, None
@@ -144,6 +155,9 @@ def build_object(tokens, wait_till_the_end = False, most_top_level = True):
       elif not key:
           key = t.v
           i+=1
+          if "raw@" in key:
+            blind_cache.append(t)
+            wait_till_the_end = True
           continue
       else:
            print(key, tokens[i-2:i+2])
