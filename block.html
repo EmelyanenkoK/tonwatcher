@@ -113,9 +113,11 @@
       <button type="submit">Submit</button>
     </form>
     
+     <a href="/">Go back</a>
+     <div class="account_info">
+         <pre>{{block_data}}</pre>
+     </div>
 
-    <canvas id="blocksChart" ></canvas>
-    <canvas id="balanceChart" ></canvas>
     <hr />
     <div class="footer">
 {{last_block}}<br/>
@@ -124,74 +126,6 @@
     <a href="https://t.me/rulon"><i class="fab fa-telegram"></i>Contact me</a><a href="https://github.com/EmelyanenkoK/tonwatcher"><i class="fab fa-github"></i>Source code</a>
     </div>
   </center>
-	<script>
-	var ctx = document.getElementById('blocksChart');
-	var myChart = new Chart(ctx, {
-	    type: 'line',
-	    data: {
-		datasets: [{
-		    label: 'Block height',
-                    yAxisID: 'A',
-		    data: {{block_height_graph_data|safe}} ,
-                    borderColor: "rgb(150, 0, 0)"
-		},
-                {
-		    label: 'Blocks per minute',
-                    yAxisID: 'B',
-		    data: {{block_per_minute_graph_data|safe}},
-                    borderColor: "rgb(0, 150, 0)"
-		}]
-	    },
-	    options: {
-		scales: {
-                  xAxes: [{
-                    type: 'time',
-                    time: {
-                      displayFormats: {
-                        minute: 'h:mm a'
-                          }
-                      }
-
-            }],
-		yAxes: [{
-			id: 'A',
-			type: 'linear',
-			position: 'left',
-		      }, {
-			id: 'B',
-			type: 'linear',
-			position: 'right',
-		      }]
-}
-	    }
-	});
-	var ctx2 = document.getElementById('balanceChart');
-	var myChart2 = new Chart(ctx2, {
-	    type: 'line',
-	    data: {
-		datasets: [{
-		    label: 'Balance of giver account',
-		    data: {{giver_balance|safe}} ,
-                    borderColor: "rgb(150, 0, 0)"
-		}]
-	    },
-	    options: {
-		scales: {
-                  xAxes: [{
-                    type: 'time',
-                    time: {
-                      displayFormats: {
-                        minute: 'h:mm a'
-                          }
-                      }
-
-            		}],
-		}
-	    }
-	});
-
-	</script>
- 
  </body>
 </html>
 

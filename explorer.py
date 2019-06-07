@@ -68,6 +68,11 @@ def get_prev_block(block_dump):
   file_hash = file_hash[1:] #remove 'x'
   return "(%d,%d,%d):%s:%s"%( int(chain_id), int(hz3), int(seq_no), str(root_hash), str(file_hash) )
 
+def parse_full_id(full_id):
+    main_chain, keys = last.split(")")
+    chain_id, hz3, block_height = main_chain[1:].split(",")
+    root_hash, file_hash = keys[1:].split(":")
+    return {"height":block_height, "chain_id":chain_id, "root_hash":root_hash, "file_hash":file_hash, "hz3":hz3, "full_id":last}
    
 block_awaiting_list = []
 async def get_blocks_routine():
@@ -105,10 +110,7 @@ async def get_server_time():
 
 async def get_last_block_info():
     last = await request('last')
-    main_chain, keys = last.split(")")
-    chain_id, hz3, block_height = main_chain[1:].split(",")
-    root_hash, file_hash = keys[1:].split(":")
-    return {"height":block_height, "chain_id":chain_id, "root_hash":root_hash, "file_hash":file_hash, "hz3":hz3, "full_id":last}
+    return parse_full_id(last)
  
 async def dump_block(full_id):
     block = await request('getblock', [full_id])
@@ -125,8 +127,17 @@ async def get_account(account):
       balance = None
     return {"balance":balance, "full_info":json.dumps(account, indent=2)}
 
+async def get_header_footer_data():
+    time = await get_server_time()
+    block_info = await get_last_block_info()
+    ret = {"time":time, "block_height":block_info["height"], \
+            "root_hash": block_info["root_hash"], "file_hash": block_info["file_hash"],
+            "last_block": "Last masterchain block is (chain_id %s : %s : height: %s)"%(block_info["chain_id"], block_info["hz3"], block_info["height"])}
+    return ret
+
+
 @aiohttp_jinja2.template('index.html')
-async def handle(request):
+async def handle_main(request):
     account = None
     try: 
         data = await request.post()
@@ -136,24 +147,81 @@ async def handle(request):
     finally:
       if account:
         raise web.HTTPFound('/account/%s'%account)
-    time = await get_server_time()
-    block_info = await get_last_block_info()
-    ret = {"time":time, "block_height":block_info["height"], \
-            "root_hash": block_info["root_hash"], "file_hash": block_info["file_hash"],
-            "last_block": "Last masterchain block is (chain_id %s : %s : height: %s)"%(block_info["chain_id"], block_info["hz3"], block_info["height"])}
+    ret = await get_header_footer_data()
     account = request.match_info.get('account', None)
-    if account:
-      try:
+    graph_data = get_graph_data()
+    ret["block_height_graph_data"] =  graph_data[0]
+    ret["block_per_minute_graph_data"] =  graph_data[1]
+    ret["giver_balance"] =  graph_data[2]
+    return ret
+
+
+@aiohttp_jinja2.template('account.html')
+async def handle_account(request):
+    ret = await get_header_footer_data()
+    account = request.match_info.get('account', None)
+    try:
         account_data = await get_account(account)
         ret["account_info"] = account_data["full_info"]
         ret["balance"] = account_data["balance"]      
-      except:
+    except:
         pass
-    else:
-      graph_data = get_graph_data()
-      ret["block_height_graph_data"] =  graph_data[0]
-      ret["block_per_minute_graph_data"] =  graph_data[1]
-      ret["giver_balance"] =  graph_data[2]
+    return ret
+
+
+def is_int(smth):
+  try:
+    int(smth)
+    return True
+  except:
+    return False
+
+def is_hex(smth):
+  return set(smth.upper()) == set("0123456789ABCDEF")
+
+def is_hex_address(smth):
+  return len(smth)==64 and is_hex(smth)
+
+def is_full_hex_address(smth):
+  return len(smth)==67 and smth[:3]=="-1:" and is_hex(smth)
+
+def is_encoded_address(smth):
+  return len(smth)==48 and len[2]=="-"
+
+@aiohttp_jinja2.template('index.html')
+async def handle_search(request):
+    query = ""
+    try: 
+        data = await request.post()
+        query = data["query"]
+        if is_int(query):
+          raise web.HTTPFound('/block/%d'%int(query))
+        elif is_hex_address(query):
+          raise web.HTTPFound('/account/%s%s'%("-1:",query))
+        elif is_full_hex_address(query) or is_encoded_address(query) :
+          raise web.HTTPFound('/account/%s'%(query))
+    except:
+        pass
+    finally:
+      if account:
+        raise web.HTTPFound('/unknown/%s'%query)
+
+@aiohttp_jinja2.template('unknown.html')
+async def handle_unknown(request):
+  query = request.match_info.get('query', None)
+  ret = await get_header_footer_data()
+  ret["query"] = query
+  return ret
+
+
+@aiohttp_jinja2.template('block.html')
+async def handle_block(request):
+    block = None
+    block = request.match_info.get('block', None)
+    ret = await get_header_footer_data()
+    full_id = get_block(block)
+    block_data = await dump_block(full_id)
+    ret["block_data"] = json.dumps(block_data, indent=2)
     return ret
 
 
@@ -162,9 +230,11 @@ if __name__ == '__main__':
   loop.create_task(get_blocks_routine())
   loop.create_task(check_testnet_giver_balance())
   app = web.Application(loop=loop)
-  app.router.add_get('/', handle)
-  app.router.add_post('/account', handle)
-  app.router.add_get('/account/{account}', handle)
+  app.router.add_get('/', handle_main)
+  app.router.add_post('/search', handle_search)
+  app.router.add_get('/unknown/{query}', handle_unknown)
+  app.router.add_get('/account/{account}', handle_account)
+  app.router.add_get('/block/{height}', handle_block)
   aiohttp_jinja2.setup(app,
       loader=jinja2.FileSystemLoader("./"))
   try:
