@@ -43,7 +43,11 @@ async def request(method, params=[]):
         result = await fetch(session, addr)
         #TODO it is dangerous
         result = result.replace("'", '"').replace("\n", " ")
-        return json.loads(result)["result"]
+        result = json.loads(result)
+        if "result" in result:
+          return True, result["result"]
+        else:
+          return False, result["error"]
 
 async def check_testnet_giver_balance():
   giver = "-1:8156775b79325e5d62e742d9b96c30b6515a5cd2f1f64c5da4b193c03f070e0d"
@@ -69,20 +73,23 @@ def get_prev_block(block_dump):
   return "(%d,%d,%d):%s:%s"%( int(chain_id), int(hz3), int(seq_no), str(root_hash), str(file_hash) )
 
 def parse_full_id(full_id):
-    main_chain, keys = last.split(")")
+    main_chain, keys = full_id.split(")")
     chain_id, hz3, block_height = main_chain[1:].split(",")
     root_hash, file_hash = keys[1:].split(":")
-    return {"height":block_height, "chain_id":chain_id, "root_hash":root_hash, "file_hash":file_hash, "hz3":hz3, "full_id":last}
+    return {"height":block_height, "chain_id":chain_id, "root_hash":root_hash, "file_hash":file_hash, "hz3":hz3, "full_id":full_id}
    
 block_awaiting_list = []
 async def get_blocks_routine():
     while True:
       while len(block_awaiting_list):
         full_id = block_awaiting_list.pop()  
-        print("getting block %s"%full_id)
+        id_dict = parse_full_id(full_id)
+        if get_block(id_dict["height"]):
+          continue #block was already downloded
         block_dump = await dump_block(full_id)
         block_num = int(block_dump["block"]["block"]["info"]["block_info"]["seq_no"])
-        insert_block(block_num, time.time(), full_id)  
+        gen_time = int(block_dump["block"]["block"]["info"]["block_info"]["gen_utime"])
+        insert_block(block_num, gen_time, full_id)  
         prev = get_prev_block(block_dump)     
         if block_num>1 and not get_block(block_num-1):
             block_awaiting_list.append(prev)        
@@ -104,22 +111,31 @@ async def check_block_routine():
     pass
 
 async def get_server_time():
-    time = await request('time')
+    res, time = await request('time')
+    if not res:
+      return "Unknown"
     time = datetime.utcfromtimestamp(int(time)).strftime('%Y-%m-%d %H:%M:%S')
     return time
 
 async def get_last_block_info():
-    last = await request('last')
+    res, last = await request('last')
+    if not res:
+      u="unknown"
+      return {"height":u, "chain_id":u, "root_hash":u, "file_hash":u, "hz3":u, "full_id":u}
     return parse_full_id(last)
  
 async def dump_block(full_id):
-    block = await request('getblock', [full_id])
+    res, block = await request('getblock', [full_id])
+    if not res:
+      raise Exception(block)
     block["block"] = parse(block["block"])
     return block
 
 
 async def get_account(account):
-    account = await request('getaccount', [account])
+    res, account = await request('getaccount', [account])
+    if not res:
+      return {"balance":None, "full_info":account}
     account["account"] = parse(account["account"])
     try:
       balance = int(account["account"]["account"]["storage"]["account_storage"]["balance"]["currencies"]["grams"]["nanograms"]["amount"]["var_uint"]["value"])/1e9
@@ -138,17 +154,7 @@ async def get_header_footer_data():
 
 @aiohttp_jinja2.template('index.html')
 async def handle_main(request):
-    account = None
-    try: 
-        data = await request.post()
-        account = data["account"]
-    except:
-        pass
-    finally:
-      if account:
-        raise web.HTTPFound('/account/%s'%account)
     ret = await get_header_footer_data()
-    account = request.match_info.get('account', None)
     graph_data = get_graph_data()
     ret["block_height_graph_data"] =  graph_data[0]
     ret["block_per_minute_graph_data"] =  graph_data[1]
@@ -164,8 +170,8 @@ async def handle_account(request):
         account_data = await get_account(account)
         ret["account_info"] = account_data["full_info"]
         ret["balance"] = account_data["balance"]      
-    except:
-        pass
+    except Exception as e:
+        print(e)
     return ret
 
 
@@ -183,10 +189,16 @@ def is_hex_address(smth):
   return len(smth)==64 and is_hex(smth)
 
 def is_full_hex_address(smth):
-  return len(smth)==67 and smth[:3]=="-1:" and is_hex(smth)
+  if not ":" in smth:
+    return False
+  try:
+    chain_id, addr = smth.split(":")
+  except:
+    return False
+  return is_int(chain_id) and is_hex(addr)
 
 def is_encoded_address(smth):
-  return len(smth)==48 and len[2]=="-"
+  return "_" in smth and len(smth[smth.find("-"):])==45
 
 @aiohttp_jinja2.template('index.html')
 async def handle_search(request):
@@ -194,17 +206,16 @@ async def handle_search(request):
     try: 
         data = await request.post()
         query = data["query"]
-        if is_int(query):
-          raise web.HTTPFound('/block/%d'%int(query))
-        elif is_hex_address(query):
-          raise web.HTTPFound('/account/%s%s'%("-1:",query))
-        elif is_full_hex_address(query) or is_encoded_address(query) :
-          raise web.HTTPFound('/account/%s'%(query))
     except:
-        pass
-    finally:
-      if account:
         raise web.HTTPFound('/unknown/%s'%query)
+
+    if is_int(query):
+          raise web.HTTPFound('/block/%d'%int(query))
+    elif is_hex_address(query):
+          raise web.HTTPFound('/account/%s%s'%("-1:",query))
+    elif is_full_hex_address(query) or is_encoded_address(query) :
+          raise web.HTTPFound('/account/%s'%(query))
+    raise web.HTTPFound('/unknown/%s'%query)
 
 @aiohttp_jinja2.template('unknown.html')
 async def handle_unknown(request):
@@ -216,10 +227,10 @@ async def handle_unknown(request):
 
 @aiohttp_jinja2.template('block.html')
 async def handle_block(request):
-    block = None
-    block = request.match_info.get('block', None)
+    height = None
+    height = request.match_info.get('height', None)
     ret = await get_header_footer_data()
-    full_id = get_block(block)
+    full_id = get_block(height)[0]
     block_data = await dump_block(full_id)
     ret["block_data"] = json.dumps(block_data, indent=2)
     return ret
