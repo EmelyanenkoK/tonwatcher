@@ -11,6 +11,7 @@ import time
 import json
 from datetime import datetime
 from utils import *
+from address_utils import detect_address
 from db import *
 from parser import parse
 
@@ -219,10 +220,8 @@ async def handle_search(request):
 
     if is_int(query):
           raise web.HTTPFound('/block/%d'%int(query))
-    elif is_hex_address(query):
-          raise web.HTTPFound('/account/%s%s'%("-1:",query))
-    elif is_full_hex_address(query) or is_encoded_address(query) or is_long_string(query):
-          raise web.HTTPFound('/account/%s'%(query))
+    elif detect_address(query):
+          raise web.HTTPFound('/account/%s'%str(detect_address(query)["raw_form"]))
     raise web.HTTPFound('/unknown/%s'%query)
 
 @aiohttp_jinja2.template('unknown.html')
