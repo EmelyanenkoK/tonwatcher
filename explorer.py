@@ -16,7 +16,7 @@ from parser import parse
 
 
 # ===========  CHANGE PARAMS HERE ===========
-server_port = 8090
+server_port = 8080
 logging_level = logging.DEBUG # one of [logging.CRITICAL, logging.ERROR, logging.INFO, logging.DEBUG]
 lite_client_port = 8000
 lite_client_host = "http://localhost"
@@ -82,7 +82,7 @@ block_awaiting_list = []
 async def get_blocks_routine():
     while True:
       while len(block_awaiting_list):
-        full_id = block_awaiting_list.pop()  
+        full_id = block_awaiting_list.pop(0)
         id_dict = parse_full_id(full_id)
         if get_block(id_dict["height"]):
           continue #block was already downloded
@@ -141,7 +141,7 @@ async def get_account(account):
       balance = int(account["account"]["account"]["storage"]["account_storage"]["balance"]["currencies"]["grams"]["nanograms"]["amount"]["var_uint"]["value"])/1e9
     except:
       balance = None
-    return {"balance":balance, "full_info":json.dumps(account, indent=2)}
+    return {"balance":balance, "full_info":json.dumps(account, indent=2), "json_account":account}
 
 async def get_header_footer_data():
     time = await get_server_time()
@@ -169,7 +169,11 @@ async def handle_account(request):
     try:
         account_data = await get_account(account)
         ret["account_info"] = account_data["full_info"]
-        ret["balance"] = account_data["balance"]      
+        ret["balance"] = account_data["balance"]
+        ret["seq_no"] = parse_seq_no(account_data["json_account"])
+        ret["contract_type"] = parse_contract_type(account_data["json_account"])
+        ret["contract_state"] = parse_contract_state(account_data["json_account"])
+        ret["workchain"] = parse_workchain(account_data["json_account"])
     except Exception as e:
         print(e)
     return ret
@@ -200,12 +204,16 @@ def is_full_hex_address(smth):
 def is_encoded_address(smth):
   return "_" in smth and len(smth[smth.find("-"):])==45
 
+def is_long_string(smth):
+  return isinstance(smth, str) and smth.find(" ")==-1 and len(smth)>30
+
+
 @aiohttp_jinja2.template('index.html')
 async def handle_search(request):
     query = ""
     try: 
         data = await request.post()
-        query = data["query"]
+        query = data["query"].strip()
     except:
         raise web.HTTPFound('/unknown/%s'%query)
 
@@ -213,7 +221,7 @@ async def handle_search(request):
           raise web.HTTPFound('/block/%d'%int(query))
     elif is_hex_address(query):
           raise web.HTTPFound('/account/%s%s'%("-1:",query))
-    elif is_full_hex_address(query) or is_encoded_address(query) :
+    elif is_full_hex_address(query) or is_encoded_address(query) or is_long_string(query):
           raise web.HTTPFound('/account/%s'%(query))
     raise web.HTTPFound('/unknown/%s'%query)
 
@@ -230,9 +238,12 @@ async def handle_block(request):
     height = None
     height = request.match_info.get('height', None)
     ret = await get_header_footer_data()
-    full_id = get_block(height)[0]
-    block_data = await dump_block(full_id)
-    ret["block_data"] = json.dumps(block_data, indent=2)
+    try:
+      full_id = get_block(height)[0]
+      block_data = await dump_block(full_id)
+      ret["block_data"] = json.dumps(block_data, indent=2)
+    except:
+      ret["block_data"] = "Block is not downloaded yet"
     return ret
 
 

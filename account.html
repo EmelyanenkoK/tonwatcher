@@ -93,6 +93,10 @@
           max-width: 600px;
           max-height:400px;
         }
+        .balance {
+          padding-left:20px;
+          padding-right:20px;
+        }
         
 </style>
  <body>
@@ -115,7 +119,12 @@
     
      <a href="/">Go back</a>
      <div class="account_info">
-         <span class="balance">Balance <strong>{{balance}}</strong></span>
+         <span class="balance">Balance <strong>{{balance}}</strong></span> 
+         <span class="balance">Account type <strong>{{contract_type}}</strong></span>
+         <span class="balance"> {{contract_state}}</span>
+         <br>
+         <span class="balance">Seq_no <strong>{{seq_no}}</strong></span>
+         <span class="balance"> <strong>{{workchain}}</strong></span>
          <pre>{{account_info}}</pre>
      </div>
 
