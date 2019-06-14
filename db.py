@@ -40,6 +40,13 @@ async def add_block_id(workchain, prefix, height, root_hash, file_hash, download
                           """,
                           height, workchain, prefix, root_hash, file_hash, downloaded)
 
+async def has_block_id(workchain, prefix, height):
+  if not psql_conn or psql_conn.is_closed():
+    await get_psql_connection()
+  records =  await psql_conn.fetch("""SELECT height from blocks where height=$1 and prefix=$2 and workchain=$3""",
+             height, prefix, workchain)
+  return len(records)
+
 async def mark_downloaded(workchain, prefix, height, gen_time=None):
   if not psql_conn or psql_conn.is_closed():
     await get_psql_connection()

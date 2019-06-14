@@ -30,13 +30,15 @@ class Word(Token):
   def __repr__(self):
     return "WORD(%s)"%self.v
  
-
+_4byte_int = 256**4-1
 class Integer(Token):
   def __init__(self, position, i):
     self.position = position
     self.v = int(i)
+    if self.v>=_4byte_int:
+      self.v = hex(self.v)
   def __repr__(self):
-    return "Int(%d)"%self.v
+    return "Int(%s)"%self.v
   
 
 
@@ -131,6 +133,8 @@ def build_object(tokens, wait_till_the_end = False, most_top_level = True):
          i+=1
        else:
          k,v,n = build_object(tokens[i:], most_top_level = False)
+         if k == None:
+          k="_null"
          if awaiting_value:
            ret[cur_key]={k:v}
            awaiting_value, cur_key = False, None
