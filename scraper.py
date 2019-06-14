@@ -49,7 +49,6 @@ async def get_blocks_routine():
         id_dict = parse_full_id(full_id)
         block_dump = await dump_block(full_id)
         gen_time = int(block_dump["block"]["block"]["info"]["block_info"]["gen_utime"])
-        print(json.dumps(block_dump, indent=2))
         await insert_block(id_dict["chain_id"], id_dict["prefix"], id_dict["height"], block_dump)  
         await mark_downloaded(id_dict["chain_id"], id_dict["prefix"], id_dict["height"], gen_time=gen_time)
         prevs = get_prev_blocks(block_dump)  

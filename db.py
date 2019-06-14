@@ -10,7 +10,7 @@ CREATE TABLE blocks (id serial UNIQUE, height integer, workchain integer, prefix
 CREATE TABLE giver_balance (id serial UNIQUE, timestamp bigint, balance bigint);
 '''
 
-psql_conn = None
+psql_pool = None
 mongo_db = None
 
 def get_mongo_db():
@@ -23,57 +23,64 @@ def get_mongo_db():
 get_mongo_db()
 
 async def get_psql_connection():
-  global psql_conn
+  global psql_pool
   credents = get_psql_credents()
-  psql_conn = await asyncpg.connect(host=credents["host"],\
+  psql_pool = await asyncpg.create_pool(host=credents["host"],\
                                     database=credents["database"], \
                                     user=credents["user"], \
                                     password=credents["password"])
 
+def ensure_pool(f):
+  async def wrapper(*args, **kwargs):
+    if not psql_pool:
+      await get_psql_connection()
+    return await f(*args, **kwargs)
+  return wrapper
+
+@ensure_pool
 async def add_block_id(workchain, prefix, height, root_hash, file_hash, downloaded = False):
-  if not psql_conn or psql_conn.is_closed():
-    await get_psql_connection()
-  await psql_conn.execute("""INSERT INTO blocks 
-                             (height, workchain, prefix, root_hash, file_hash, downloaded) 
-                             VALUES
-                             ($1, $2, $3, $4, $5, $6)
-                          """,
-                          height, workchain, prefix, root_hash, file_hash, downloaded)
+  async with psql_pool.acquire() as conn:
+    await conn.execute("""INSERT INTO blocks 
+                           (height, workchain, prefix, root_hash, file_hash, downloaded) 
+                          VALUES
+                           ($1, $2, $3, $4, $5, $6)
+                       """,
+                       height, workchain, prefix, root_hash, file_hash, downloaded)
 
+@ensure_pool
 async def has_block_id(workchain, prefix, height):
-  if not psql_conn or psql_conn.is_closed():
-    await get_psql_connection()
-  records =  await psql_conn.fetch("""SELECT height from blocks where height=$1 and prefix=$2 and workchain=$3""",
-             height, prefix, workchain)
-  return len(records)
+  async with psql_pool.acquire() as psql_conn:
+    records =  await psql_conn.fetch("""SELECT height from blocks where height=$1 and prefix=$2 and workchain=$3""",
+               height, prefix, workchain)
+    return len(records)
 
+@ensure_pool
 async def mark_downloaded(workchain, prefix, height, gen_time=None):
-  if not psql_conn or psql_conn.is_closed():
-    await get_psql_connection()
-  if gen_time:
-    await psql_conn.execute("""UPDATE blocks set downloaded=1, gen_time = $4 where height=$1 and prefix=$2 and workchain=$3""", height, prefix, workchain, gen_time)
-  else:
-    await psql_conn.execute("""UPDATE blocks set downloaded=1 where height=$1 and prefix=$2 and workchain=$3""", height, prefix, workchain)
+  async with psql_pool.acquire() as psql_conn:
+    if gen_time:
+      await psql_conn.execute("""UPDATE blocks set downloaded=1, gen_time = $4 where height=$1 and prefix=$2 and workchain=$3""", height, prefix, workchain, gen_time)
+    else:
+      await psql_conn.execute("""UPDATE blocks set downloaded=1 where height=$1 and prefix=$2 and workchain=$3""", height, prefix, workchain)
 
+@ensure_pool
 async def get_not_downloaded(n=10):
-  if not psql_conn or psql_conn.is_closed():
-    await get_psql_connection()
-  records =  await psql_conn.fetch("""SELECT (height, workchain, prefix, root_hash, file_hash) from blocks where downloaded=0 LIMIT $1""", n)
-  blocks = []
-  for r in records:
-    r=r["row"]
-    blocks.append("(%s,%s,%s):%s:%s"%(r[1], r[2], r[0], r[3], r[4]))
-  return blocks
+  async with psql_pool.acquire() as psql_conn:
+    records =  await psql_conn.fetch("""SELECT (height, workchain, prefix, root_hash, file_hash) from blocks where downloaded=0 LIMIT $1""", n)
+    blocks = []
+    for r in records:
+      r=r["row"]
+      blocks.append("(%s,%s,%s):%s:%s"%(r[1], r[2], r[0], r[3], r[4]))
+    return blocks
 
+@ensure_pool
 async def get_blocks_by_height(height):
-  if not psql_conn or psql_conn.is_closed():
-    await get_psql_connection()
-  records =  await psql_conn.fetch("""SELECT (height, workchain, prefix, root_hash, file_hash) from blocks where height=$1""", height)
-  blocks = []
-  for r in records:
-    r=r["row"]
-    blocks.append("(%s,%s,%s):%s:%s"%(r[1], r[2], r[0], r[3], r[4]))
-  return blocks
+  async with psql_pool.acquire() as psql_conn:
+    records =  await psql_conn.fetch("""SELECT (height, workchain, prefix, root_hash, file_hash) from blocks where height=$1""", height)
+    blocks = []
+    for r in records:
+      r=r["row"]
+      blocks.append("(%s,%s,%s):%s:%s"%(r[1], r[2], r[0], r[3], r[4]))
+    return blocks
 
 
 async def get_block(workchain, prefix, height):
@@ -85,9 +92,9 @@ async def insert_block(workchain, prefix, height, block):
   block['height'] = height
   return await mongo_db.blocks.insert_one(block)
 
+@ensure_pool
 async def get_graph_data():
-  if not psql_conn or psql_conn.is_closed():
-    await get_psql_connection()
+ async with psql_pool.acquire() as psql_conn:
   res = await psql_conn.fetchrow("SELECT COUNT(height) from blocks where gen_time>0")
   print(res)
   rows=res["count"]
@@ -121,8 +128,8 @@ async def get_graph_data():
     bal+="{t:moment(%d,'X'), y:%.2f},"%(t, b/1e9)
   return "["+bh+"]", "["+bm+"]", "["+bal+"]"
 
+@ensure_pool
 async def insert_giver_balance(timestamp, balance):
-  if not psql_conn or psql_conn.is_closed():
-    await get_psql_connection()
-  await psql_conn.execute("INSERT INTO giver_balance (timestamp, balance) VALUES ($1, $2)", int(timestamp), int(balance*1e9))
+  async with psql_pool.acquire() as psql_conn:
+    await psql_conn.execute("INSERT INTO giver_balance (timestamp, balance) VALUES ($1, $2)", int(timestamp), int(balance*1e9))
 
