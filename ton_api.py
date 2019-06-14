@@ -41,6 +41,15 @@ def parse_full_id(full_id):
     chain_id, block_height = int(chain_id), int(block_height)
     return {"height":block_height, "chain_id":chain_id, "root_hash":root_hash, "file_hash":file_hash, "prefix":prefix, "full_id":full_id}
 
+def parse_short_id(short_id, with_brackets=True):
+    if with_brackets:
+      assert "("==short_id[0] and ")"==short_id[-1]
+      short_id = short_id[1:-1]
+    chain_id, prefix, block_height = short_id.split(",")
+    chain_id, block_height = int(chain_id), int(block_height)
+    return {"height":block_height, "chain_id":chain_id, "prefix":prefix}
+
+
 async def get_last_block_info():
     res, last = await request('last')
     if not res:

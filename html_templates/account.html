@@ -1,6 +1,6 @@
 <html>
  <head>
-  <title>TON Explorer</title>
+  <title>TON Watcher | TON Explorer</title>
   <link rel="shortcut icon" href="/favicon.ico"/>
   <link rel="apple-touch-icon image_src" href="/favicon.ico"/>
   <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, minimum-scale=1.0">
@@ -93,6 +93,10 @@
           max-width: 600px;
           max-height:400px;
         }
+        .balance {
+          padding-left:20px;
+          padding-right:20px;
+        }
         
 </style>
  <body>
@@ -106,92 +110,31 @@
       <span>Last block height: <strong>{{ block_height }}</strong></span>
     </div>
     <br/>
-    <h1>Enter Address</h1>
+    <h1>Search for addresses or block on TON multichain</h1>
     <form method="POST" action="/search">
-      <input type="text" name="query"/><br/><br/>
-      <span class="help">Enter address in any valid format, for example:<br/><a href="/account/-1:8156775b79325e5d62e742d9b96c30b6515a5cd2f1f64c5da4b193c03f070e0d">8156775b79325e5d62e742d9b96c30b6515a5cd2f1f64c5da4b193c03f070e0d</a><br/> or<br/><a href="/account/Ef-BVndbeTJeXWLnQtm5bDC2UVpc0vH2TF2ksZPAPwcODSkb">Ef-BVndbeTJeXWLnQtm5bDC2UVpc0vH2TF2ksZPAPwcODSkb</a></span><br/><br/>
+      <input type="text" name="query" placeholder="Enter address or block_id in any format"/><br/><br/>
+      <span class="help">Examples:<br/>
+          <a href="/block/(0:8000000000000000:13)">(0:8000000000000000:13)</a> 
+          <br/>
       <button type="submit">Submit</button>
     </form>
-    
+     <br/>
+     <a href="/">Go back</a>
+     <div class="account_info">
+         <span class="balance">Balance <strong>{{balance}}</strong></span> 
+         <span class="balance">Account type <strong>{{contract_type}}</strong></span>
+         <span class="balance"> {{contract_state}}</span>
+         <br>
+         <span class="balance">Seq_no <strong>{{seq_no}}</strong></span>
+         <span class="balance"> <strong>{{workchain}}</strong></span>
+         <pre>{{account_info}}</pre>
+     </div>
 
-    <canvas id="blocksChart" ></canvas>
-    <canvas id="balanceChart" ></canvas>
     <hr />
     <div class="footer">
-{{last_block}}<br/>
-{{root_hash}}<br/>
-{{file_hash}}<br/>
     <a href="https://t.me/rulon"><i class="fab fa-telegram"></i>Contact me</a><a href="https://github.com/EmelyanenkoK/tonwatcher"><i class="fab fa-github"></i>Source code</a>
     </div>
   </center>
-	<script>
-	var ctx = document.getElementById('blocksChart');
-	var myChart = new Chart(ctx, {
-	    type: 'line',
-	    data: {
-		datasets: [{
-		    label: 'Block height',
-                    yAxisID: 'A',
-		    data: {{block_height_graph_data|safe}} ,
-                    borderColor: "rgb(150, 0, 0)"
-		},
-                {
-		    label: 'Blocks per minute',
-                    yAxisID: 'B',
-		    data: {{block_per_minute_graph_data|safe}},
-                    borderColor: "rgb(0, 150, 0)"
-		}]
-	    },
-	    options: {
-		scales: {
-                  xAxes: [{
-                    type: 'time',
-                    time: {
-                      displayFormats: {
-                        minute: 'h:mm a'
-                          }
-                      }
-
-            }],
-		yAxes: [{
-			id: 'A',
-			type: 'linear',
-			position: 'left',
-		      }, {
-			id: 'B',
-			type: 'linear',
-			position: 'right',
-		      }]
-}
-	    }
-	});
-	var ctx2 = document.getElementById('balanceChart');
-	var myChart2 = new Chart(ctx2, {
-	    type: 'line',
-	    data: {
-		datasets: [{
-		    label: 'Balance of giver account',
-		    data: {{giver_balance|safe}} ,
-                    borderColor: "rgb(150, 0, 0)"
-		}]
-	    },
-	    options: {
-		scales: {
-                  xAxes: [{
-                    type: 'time',
-                    time: {
-                      displayFormats: {
-                        minute: 'h:mm a'
-                          }
-                      }
-
-            		}],
-		}
-	    }
-	});
-
-	</script>
- 
  </body>
 </html>
 
