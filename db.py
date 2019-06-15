@@ -8,6 +8,8 @@ from db_utils import get_psql_credents, get_mongo_credents
 PSQL schema
 CREATE TABLE blocks (id serial UNIQUE, height integer, workchain integer, prefix varchar(16), root_hash varchar(64), file_hash varchar(64), downloaded int, gen_time bigint, PRIMARY KEY (height, prefix, workchain) );
 CREATE TABLE giver_balance (id serial UNIQUE, timestamp bigint, balance bigint);
+Mongo Indexes
+db.blocks.createIndex({'height':-1, 'workchain':1, 'prefix':1})
 '''
 
 psql_pool = None
@@ -95,33 +97,28 @@ async def insert_block(workchain, prefix, height, block):
 @ensure_pool
 async def get_graph_data():
  async with psql_pool.acquire() as psql_conn:
-  res = await psql_conn.fetchrow("SELECT COUNT(height) from blocks where gen_time>0")
-  print(res)
+  res = await psql_conn.fetchrow("SELECT COUNT(height) from blocks where gen_time>0 and workchain=-1")
   rows=res["count"]
   fr = 1
   if rows>100:
     fr = int(rows/40)
-  res = await psql_conn.fetch("SELECT height, gen_time from blocks where height%$1=0 and gen_time>0 order by height", fr)
-  for r in res:
-    print(r, list(r))
+  res = await psql_conn.fetch("SELECT height, gen_time from blocks where height%$1=0 and gen_time>0 and workchain=-1 order by height", fr)
   rows = [list(r) for r in res]
   bh = ""
   bm = ""
   for i,(h,t) in enumerate(rows):
-    bh+="{t:moment(%d,'X'), y:%d},"%(int(t/1000), h)
+    bh+="{t:moment(%d,'X'), y:%d},"%(int(t), h)
     if not i==0:
-      dt = int( (t - rows[i-1][1])/1000)
+      dt = int( (t - rows[i-1][1]))
       db = h-rows[i-1][0]
       bpm = db*60./dt
-      bm+="{x:moment(%d,'X'), y:%.1f},"%(int(t/1000), bpm)
+      bm+="{x:moment(%d,'X'), y:%.1f},"%(int(t), bpm)
   res = await psql_conn.fetchrow("SELECT COUNT(id) from giver_balance")
   rows=res["count"]
   fr = 1
   if rows>100:
     fr = int(rows/40)
   res = await psql_conn.fetch("SELECT timestamp, balance from giver_balance where id%$1=0 order by id",fr)
-  for r in res:
-    print(r)
   rows = [list(r) for r in res]
   bal = ""
   for i,(t, b) in enumerate(rows):

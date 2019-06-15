@@ -37,7 +37,7 @@ async def get_header_footer_data():
     block_info = await get_last_block_info()
     ret = {"time":time, "block_height":block_info["height"], \
             "root_hash": block_info["root_hash"], "file_hash": block_info["file_hash"],
-            "last_block": "Last masterchain block is (chain_id %s : %s : height: %s)"%(block_info["chain_id"], block_info["hz3"], block_info["height"])}
+            "last_block": "Last masterchain block is (chain_id %s : %s : height: %s)"%(block_info["chain_id"], block_info["prefix"], block_info["height"])}
     return ret
 
 
@@ -65,7 +65,7 @@ def is_full_block_id(smth, bracket=True):
 @aiohttp_jinja2.template('html_templates/index.html')
 async def handle_main(request):
     ret = await get_header_footer_data()
-    graph_data = get_graph_data()
+    graph_data = await get_graph_data()
     ret["block_height_graph_data"] =  graph_data[0]
     ret["block_per_minute_graph_data"] =  graph_data[1]
     ret["giver_balance"] =  graph_data[2]
@@ -127,8 +127,9 @@ async def handle_block(request):
       id_dict = parse_short_id(short_id)
       w, p, h = id_dict["chain_id"], id_dict["prefix"], id_dict["height"]
       block_data = await get_block(w, p, h)
+      block_data.pop("_id")
       ret["block_data"] = json.dumps(block_data, indent=2)
-    except:
+    except Exception as e:
       ret["block_data"] = "Block is not downloaded yet"
     return ret
 

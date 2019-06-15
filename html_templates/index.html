@@ -114,19 +114,16 @@
           <br/>
           <a href="/account/Ef-BVndbeTJeXWLnQtm5bDC2UVpc0vH2TF2ksZPAPwcODSkb">Ef-BVndbeTJeXWLnQtm5bDC2UVpc0vH2TF2ksZPAPwcODSkb</a>
           <br/> 
-          <a href="/block/(0:8000000000000000:13)">(0:8000000000000000:13)</a> 
+          <a href="/block/(0,8000000000000000,13)">(0,8000000000000000,13)</a> 
           <br/>
       <button type="submit">Submit</button>
     </form>
     
 
-    <canvas id="blocksChart" ></canvas>
-    <canvas id="balanceChart" ></canvas>
+    <div><canvas id="blocksChart" ></canvas></div>
+    <div><canvas id="balanceChart" ></canvas></div>
     <hr />
     <div class="footer">
-{{last_block}}<br/>
-{{root_hash}}<br/>
-{{file_hash}}<br/>
     <a href="https://t.me/rulon"><i class="fab fa-telegram"></i>Contact me</a><a href="https://github.com/EmelyanenkoK/tonwatcher"><i class="fab fa-github"></i>Source code</a>
     </div>
   </center>
@@ -171,6 +168,7 @@
 }
 	    }
 	});
+        
 	var ctx2 = document.getElementById('balanceChart');
 	var myChart2 = new Chart(ctx2, {
 	    type: 'line',
