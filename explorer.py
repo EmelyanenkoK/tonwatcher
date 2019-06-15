@@ -66,9 +66,8 @@ def is_full_block_id(smth, bracket=True):
 async def handle_main(request):
     ret = await get_header_footer_data()
     graph_data = await get_graph_data()
-    ret["block_height_graph_data"] =  graph_data[0]
-    ret["block_per_minute_graph_data"] =  graph_data[1]
-    ret["giver_balance"] =  graph_data[2]
+    ret["shard_graph_data"] =  graph_data[0]
+    ret["giver_balance"] =  graph_data[1]
     return ret
 
 

@@ -132,18 +132,16 @@
 	var myChart = new Chart(ctx, {
 	    type: 'line',
 	    data: {
-		datasets: [{
-		    label: 'Block height',
-                    yAxisID: 'A',
-		    data: {{block_height_graph_data|safe}} ,
-                    borderColor: "rgb(150, 0, 0)"
-		},
-                {
-		    label: 'Blocks per minute',
-                    yAxisID: 'B',
-		    data: {{block_per_minute_graph_data|safe}},
-                    borderColor: "rgb(0, 150, 0)"
-		}]
+		datasets: [
+                    {% for shard_name in shard_graph_data %}
+                      {
+                        label: '{{shard_name}}',
+                        yAxisID: 'B',
+                        data: {{shard_graph_data[shard_name]["rate_data"]|safe}} ,
+                        borderColor: "{{shard_graph_data[shard_name]["color"]}}"
+	              },
+                    {% endfor %}
+		]
 	    },
 	    options: {
 		scales: {

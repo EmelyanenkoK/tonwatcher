@@ -1,7 +1,7 @@
 import asyncpg
 import motor.motor_asyncio as motor
 import asyncio
-
+import random
 
 from db_utils import get_psql_credents, get_mongo_credents
 '''
@@ -94,15 +94,8 @@ async def insert_block(workchain, prefix, height, block):
   block['height'] = height
   return await mongo_db.blocks.insert_one(block)
 
-@ensure_pool
-async def get_graph_data():
- async with psql_pool.acquire() as psql_conn:
-  res = await psql_conn.fetchrow("SELECT COUNT(height) from blocks where gen_time>0 and workchain=-1")
-  rows=res["count"]
-  fr = 1
-  if rows>100:
-    fr = int(rows/40)
-  res = await psql_conn.fetch("SELECT height, gen_time from blocks where height%$1=0 and gen_time>0 and workchain=-1 order by height", fr)
+async def generate_graph_data_for_shard(workchain, prefix, fr, psql_conn):
+  res = await psql_conn.fetch("SELECT height, gen_time from blocks where height%$1=0 and gen_time>0 and workchain=$2 and prefix = $3 order by height", fr, workchain, prefix)
   rows = [list(r) for r in res]
   bh = ""
   bm = ""
@@ -113,6 +106,24 @@ async def get_graph_data():
       db = h-rows[i-1][0]
       bpm = db*60./dt
       bm+="{x:moment(%d,'X'), y:%.1f},"%(int(t), bpm)
+  return "["+bh+"]", "["+bm+"]"
+  
+
+@ensure_pool
+async def get_graph_data():
+ async with psql_pool.acquire() as psql_conn:
+  res = await psql_conn.fetch("SELECT workchain, prefix, COUNT(height) from blocks where gen_time>0 group by workchain, prefix")
+  rows = [list(r) for r in res]
+  shard_data = {}
+  for shard in rows:
+    workchain, prefix, cnt = shard
+    fr = 1
+    if cnt>100:
+      fr = int(cnt/40)
+    shard_name = "%d:%s"%(workchain, prefix[:4])
+    height_data, rate_data = await generate_graph_data_for_shard(workchain, prefix, fr, psql_conn)
+    color =  "rgb(%d,%d,%d)"%tuple([random.randint(10, 250-i*30) for i in range(3)])
+    shard_data[shard_name] = {"height":height_data, "rate_data":rate_data, "color":color}
   res = await psql_conn.fetchrow("SELECT COUNT(id) from giver_balance")
   rows=res["count"]
   fr = 1
@@ -123,7 +134,7 @@ async def get_graph_data():
   bal = ""
   for i,(t, b) in enumerate(rows):
     bal+="{t:moment(%d,'X'), y:%.2f},"%(t, b/1e9)
-  return "["+bh+"]", "["+bm+"]", "["+bal+"]"
+  return shard_data, "["+bal+"]"
 
 @ensure_pool
 async def insert_giver_balance(timestamp, balance):
