@@ -36,30 +36,37 @@ async def check_testnet_giver_balance():
           pass
       except Exception as e:
         scraper_logger.error(e)
-      await asyncio.sleep(10) 
+      await asyncio.sleep(10)
 
 def get_prev_blocks(block_dump):
   return block_dump["header"]["prev_blocks"]
-   
+
+async def get_one_block(full_id):
+  id_dict = parse_full_id(full_id)
+  block_dump = await dump_block(full_id)
+  gen_time = int(block_dump["block"]["block"]["info"]["block_info"]["gen_utime"])
+  await insert_block(id_dict["chain_id"], id_dict["prefix"], id_dict["height"], block_dump)
+  await mark_downloaded(id_dict["chain_id"], id_dict["prefix"], id_dict["height"], gen_time=gen_time)
+  prevs = get_prev_blocks(block_dump)  
+  prevs.append(block_dump["header"]["reference_masterchain_block"])
+  for prev in prevs:
+    prev_id_dict = parse_full_id(prev)
+    w, p, h = prev_id_dict["chain_id"], prev_id_dict["prefix"], prev_id_dict["height"]
+    if not await has_block_id(w, p, h):
+      await add_block_id(w, p, h,  prev_id_dict["root_hash"], prev_id_dict["file_hash"])
+
+
 async def get_blocks_routine():
     while True:
-      block_awaiting_list = await get_not_downloaded()
-      while len(block_awaiting_list):
-        full_id = block_awaiting_list.pop(0)
-        id_dict = parse_full_id(full_id)
-        block_dump = await dump_block(full_id)
-        gen_time = int(block_dump["block"]["block"]["info"]["block_info"]["gen_utime"])
-        await insert_block(id_dict["chain_id"], id_dict["prefix"], id_dict["height"], block_dump)  
-        await mark_downloaded(id_dict["chain_id"], id_dict["prefix"], id_dict["height"], gen_time=gen_time)
-        prevs = get_prev_blocks(block_dump)  
-        prevs.append(block_dump["header"]["reference_masterchain_block"])   
-        for prev in prevs:
-          prev_id_dict = parse_full_id(prev)
-          w, p, h = prev_id_dict["chain_id"], prev_id_dict["prefix"], prev_id_dict["height"]
-          if not await has_block_id(w, p, h):
-             await add_block_id(w, p, h,  prev_id_dict["root_hash"], prev_id_dict["file_hash"])
-      await asyncio.sleep(0.3) 
-    pass    
+      try:
+        block_awaiting_list = await get_not_downloaded(n=20)
+        await asyncio.gather(*[get_one_block(full_id) for full_id in block_awaiting_list])
+      except Exception as e:
+        print(e)
+        await asyncio.sleep(10)
+      await asyncio.sleep(0.1)
+    pass
+
 
 async def check_block_routine():
     while True:
